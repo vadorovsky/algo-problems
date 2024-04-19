@@ -11,16 +11,40 @@ pub enum MyError {
 
 /// Set of changelogs for different Merkle trees.
 /// The number of changelogs it contains is batched.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, Ord, PartialEq)]
 pub struct Changelogs {
     pub changelogs: Vec<ChangelogEvent>,
 }
 
+// Dummy implementation just for tests.
+impl PartialOrd for Changelogs {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        if self.changelogs.is_empty() {
+            Some(cmp::Ordering::Less)
+        } else if other.changelogs.is_empty() {
+            Some(cmp::Ordering::Greater)
+        } else {
+            Some(
+                self.changelogs[0]
+                    .merkle_tree_pubkey
+                    .cmp(&other.changelogs[0].merkle_tree_pubkey),
+            )
+        }
+    }
+}
+
 /// Changelog event for one Merkle tree.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, Ord, PartialEq)]
 pub struct ChangelogEvent {
     pub merkle_tree_pubkey: [u8; 32],
     pub leaves: Vec<[u8; 32]>,
+}
+
+// Dummy implementation just for tests.
+impl PartialOrd for ChangelogEvent {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.merkle_tree_pubkey.cmp(&other.merkle_tree_pubkey))
+    }
 }
 
 pub fn build_merkle_tree_map(
@@ -64,11 +88,12 @@ pub fn append_leaves(
     let mut merkle_tree_map_pair = merkle_tree_map_iter.next();
 
     while let Some((merkle_tree_pubkey, leaves)) = merkle_tree_map_pair {
+        println!("processing Merkle tree {merkle_tree_pubkey:?}");
         println!(
-            "leaves.len(): {}, leaves_start: {leaves_start}, batch_size: {batch_size}",
+            "leaves.len(): {}, leaves_start: {leaves_start}, leaves_in_batch: {leaves_in_batch}, batch_size: {batch_size}",
             leaves.len()
         );
-        let num_leaves = cmp::min(leaves.len() - leaves_start, batch_size);
+        let leaves_to_process = cmp::min(leaves.len() - leaves_start, batch_size);
         let mut changelog_event = ChangelogEvent {
             merkle_tree_pubkey: merkle_tree_pubkey.to_owned(),
             leaves: Vec::with_capacity(cmp::min(leaves.len(), batch_size)),
@@ -84,17 +109,21 @@ pub fn append_leaves(
             .leaves
             .extend_from_slice(&leaves[leaves_start..leaves_end]);
 
+        println!("pushing a changelog entry");
         batch_of_changelogs.changelogs.push(changelog_event);
 
-        leaves_in_batch += num_leaves;
-        leaves_start += num_leaves;
+        leaves_in_batch += leaves_to_process;
+        leaves_start += leaves_to_process;
 
         if leaves_start == cmp::min(leaves.len(), batch_size) {
+            println!("shifting to the next Merkle tree");
             leaves_start = 0;
             merkle_tree_map_pair = merkle_tree_map_iter.next();
         }
 
+        println!("leaves_in_batch: {leaves_in_batch}, batch_size: {batch_size}");
         if leaves_in_batch == batch_size {
+            println!("pushing a batch of changelogs");
             batches_of_changelogs.push(batch_of_changelogs);
 
             leaves_in_batch = 0;
@@ -193,7 +222,11 @@ mod tests {
             ])
         );
 
-        let changelogs = append_leaves(leaves, merkle_trees, 10).unwrap();
+        let mut changelogs = append_leaves(leaves, merkle_trees, 10).unwrap();
+        for changelogs in changelogs.iter_mut() {
+            changelogs.changelogs.sort();
+        }
+        changelogs.sort();
         assert_eq!(
             changelogs,
             vec![
