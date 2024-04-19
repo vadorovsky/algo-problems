@@ -190,6 +190,9 @@ mod tests {
         );
 
         let changelogs = append_leaves(leaves, merkle_trees, 10).unwrap();
+        for (i, changelog) in changelogs.iter().enumerate() {
+            println!("EVENT {i}: {changelog:?}\n");
+        }
         assert_eq!(
             changelogs,
             vec![
