@@ -89,11 +89,11 @@ pub fn append_leaves(
 
     while let Some((merkle_tree_pubkey, leaves)) = merkle_tree_map_pair {
         println!("processing Merkle tree {merkle_tree_pubkey:?}");
+        let leaves_to_process = cmp::min(leaves.len() - leaves_start, batch_size - leaves_in_batch);
         println!(
-            "leaves.len(): {}, leaves_start: {leaves_start}, leaves_in_batch: {leaves_in_batch}, batch_size: {batch_size}",
+            "leaves.len(): {}, leaves_start: {leaves_start}, leaves_in_batch: {leaves_in_batch}, batch_size: {batch_size}, leaves_to_process: {leaves_to_process}",
             leaves.len()
         );
-        let leaves_to_process = cmp::min(leaves.len() - leaves_start, batch_size);
         let mut changelog_event = ChangelogEvent {
             merkle_tree_pubkey: merkle_tree_pubkey.to_owned(),
             leaves: Vec::with_capacity(cmp::min(leaves.len(), batch_size)),
@@ -105,6 +105,7 @@ pub fn append_leaves(
             batch_size - leaves_start
         };
 
+        println!("leaves_start: {leaves_start}, leaves_end: {leaves_end}");
         changelog_event
             .leaves
             .extend_from_slice(&leaves[leaves_start..leaves_end]);
@@ -127,6 +128,7 @@ pub fn append_leaves(
             batches_of_changelogs.push(batch_of_changelogs);
 
             leaves_in_batch = 0;
+            leaves_start = 0;
             batch_of_changelogs = Changelogs {
                 changelogs: Vec::with_capacity(batch_size),
             };
