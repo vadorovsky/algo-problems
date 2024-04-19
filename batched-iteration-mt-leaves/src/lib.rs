@@ -50,57 +50,78 @@ pub fn append_leaves(
     merkle_trees: Vec<[u8; 32]>,
     batch_size: usize,
 ) -> Result<Vec<Changelogs>, MyError> {
-    let merkle_tree_map = build_merkle_tree_map(&leaves, &merkle_trees)?;
+    let mut merkle_tree_map = build_merkle_tree_map(&leaves, &merkle_trees)?;
 
     let num_batches = div_ceil(leaves.len(), batch_size);
-    let mut leaves_in_batch = 0;
     let mut leaves_start = 0;
     let mut batches_of_changelogs = Vec::with_capacity(num_batches);
+
+    while !merkle_tree_map.is_empty() {
+        let batch_of_changelogs =
+            process_batch(&mut leaves_start, &mut merkle_tree_map, batch_size);
+        batches_of_changelogs.push(batch_of_changelogs);
+    }
+
+    Ok(batches_of_changelogs)
+}
+
+pub fn process_batch(
+    leaves_start: &mut usize,
+    merkle_tree_map: &mut BTreeMap<[u8; 32], Vec<[u8; 32]>>,
+    batch_size: usize,
+) -> Changelogs {
+    let mut leaves_in_batch = 0;
     let mut batch_of_changelogs = Changelogs {
         changelogs: Vec::with_capacity(batch_size),
     };
 
-    let mut merkle_tree_map_iter = merkle_tree_map.iter();
-    let mut merkle_tree_map_pair = merkle_tree_map_iter.next();
+    // A vector of trees which become fully processed and should be removed
+    // from the `merkle_tree_map`.
+    let mut processed_merkle_trees = Vec::new();
 
-    while let Some((merkle_tree_pubkey, leaves)) = merkle_tree_map_pair {
-        let leaves_to_process = cmp::min(leaves.len() - leaves_start, batch_size - leaves_in_batch);
-        let mut changelog_event = ChangelogEvent {
-            merkle_tree_pubkey: merkle_tree_pubkey.to_owned(),
-            leaves: Vec::with_capacity(cmp::min(leaves.len(), batch_size)),
-        };
+    {
+        let mut merkle_tree_map_iter = merkle_tree_map.iter();
+        let mut merkle_tree_map_pair = merkle_tree_map_iter.next();
 
-        let leaves_end = leaves_start + leaves_to_process;
+        while let Some((merkle_tree_pubkey, leaves)) = merkle_tree_map_pair {
+            let leaves_to_process =
+                cmp::min(leaves.len() - *leaves_start, batch_size - leaves_in_batch);
+            let leaves_end = *leaves_start + leaves_to_process;
 
-        changelog_event
-            .leaves
-            .extend_from_slice(&leaves[leaves_start..leaves_end]);
+            let mut changelog_event = ChangelogEvent {
+                merkle_tree_pubkey: merkle_tree_pubkey.to_owned(),
+                leaves: Vec::with_capacity(cmp::min(leaves.len(), batch_size)),
+            };
 
-        batch_of_changelogs.changelogs.push(changelog_event);
+            changelog_event
+                .leaves
+                .extend_from_slice(&leaves[*leaves_start..leaves_end]);
 
-        leaves_in_batch += leaves_to_process;
-        leaves_start += leaves_to_process;
+            batch_of_changelogs.changelogs.push(changelog_event);
 
-        if leaves_start == leaves.len() {
-            leaves_start = 0;
-            merkle_tree_map_pair = merkle_tree_map_iter.next();
-        }
+            leaves_in_batch += leaves_to_process;
+            *leaves_start += leaves_to_process;
 
-        if leaves_in_batch == batch_size {
-            // BEWARE! We shouldn't do this clone in the actual program code.
-            // It's here just to make test convenient.
-            batches_of_changelogs.push(batch_of_changelogs.clone());
+            if *leaves_start == leaves.len() {
+                // We processed all the leaves from the current Merkle tree.
+                // Move to the next one.
+                *leaves_start = 0;
+                merkle_tree_map_pair = merkle_tree_map_iter.next();
+                processed_merkle_trees.push(merkle_tree_pubkey.to_owned());
+            }
 
-            leaves_in_batch = 0;
-            batch_of_changelogs.changelogs.clear();
+            if leaves_in_batch == batch_size {
+                // We reached the batch limit.
+                break;
+            }
         }
     }
 
-    if !batch_of_changelogs.changelogs.is_empty() {
-        batches_of_changelogs.push(batch_of_changelogs)
+    for processed_merkle_tree in processed_merkle_trees {
+        merkle_tree_map.remove(&processed_merkle_tree);
     }
 
-    Ok(batches_of_changelogs)
+    batch_of_changelogs
 }
 
 #[cfg(test)]
