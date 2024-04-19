@@ -104,13 +104,14 @@ pub fn append_leaves(
             leaves.len(),
             batch_size - leaves_start
         );
-        let leaves_end = if leaves.len() > batch_size - leaves_start {
-            println!("1st branch");
-            leaves.len()
-        } else {
-            println!("2nd branch");
-            cmp::min(leaves.len(), batch_size - leaves_start)
-        };
+        let leaves_end = leaves_start + leaves_to_process;
+        // let leaves_end = if leaves.len() > batch_size - leaves_start {
+        //     println!("1st branch");
+        //     leaves.len()
+        // } else {
+        //     println!("2nd branch");
+        //     cmp::min(leaves.len(), batch_size - leaves_start)
+        // };
 
         println!("leaves_start: {leaves_start}, leaves_end: {leaves_end}");
         changelog_event
