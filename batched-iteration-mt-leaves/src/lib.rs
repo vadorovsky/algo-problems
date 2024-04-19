@@ -11,40 +11,16 @@ pub enum MyError {
 
 /// Set of changelogs for different Merkle trees.
 /// The number of changelogs it contains is batched.
-#[derive(Debug, Eq, Ord, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Changelogs {
     pub changelogs: Vec<ChangelogEvent>,
 }
 
-// Dummy implementation just for tests.
-impl PartialOrd for Changelogs {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        if self.changelogs.is_empty() {
-            Some(cmp::Ordering::Less)
-        } else if other.changelogs.is_empty() {
-            Some(cmp::Ordering::Greater)
-        } else {
-            Some(
-                self.changelogs[0]
-                    .merkle_tree_pubkey
-                    .cmp(&other.changelogs[0].merkle_tree_pubkey),
-            )
-        }
-    }
-}
-
 /// Changelog event for one Merkle tree.
-#[derive(Debug, Eq, Ord, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ChangelogEvent {
     pub merkle_tree_pubkey: [u8; 32],
     pub leaves: Vec<[u8; 32]>,
-}
-
-// Dummy implementation just for tests.
-impl PartialOrd for ChangelogEvent {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.merkle_tree_pubkey.cmp(&other.merkle_tree_pubkey))
-    }
 }
 
 pub fn build_merkle_tree_map(
@@ -144,7 +120,7 @@ pub fn append_leaves(
     }
 
     if !batch_of_changelogs.changelogs.is_empty() {
-        batches_of_changelogs.push(batch_of_changelogs);
+        batches_of_changelogs.push(batch_of_changelogs)
     }
 
     Ok(batches_of_changelogs)
@@ -236,11 +212,7 @@ mod tests {
             ])
         );
 
-        let mut changelogs = append_leaves(leaves, merkle_trees, 10).unwrap();
-        for changelogs in changelogs.iter_mut() {
-            changelogs.changelogs.sort();
-        }
-        changelogs.sort();
+        let changelogs = append_leaves(leaves, merkle_trees, 10).unwrap();
         assert_eq!(
             changelogs,
             vec![
