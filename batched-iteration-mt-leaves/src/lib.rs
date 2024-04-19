@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap};
+use std::{cmp, collections::BTreeMap};
 
 use num_integer::div_ceil;
 use thiserror::Error;
@@ -50,14 +50,14 @@ impl PartialOrd for ChangelogEvent {
 pub fn build_merkle_tree_map(
     leaves: &Vec<[u8; 32]>,
     merkle_trees: &Vec<[u8; 32]>,
-) -> Result<HashMap<[u8; 32], Vec<[u8; 32]>>, MyError> {
+) -> Result<BTreeMap<[u8; 32], Vec<[u8; 32]>>, MyError> {
     if leaves.len() != merkle_trees.len() {
         return Err(MyError::LeavesTreesNotEqual(
             leaves.len(),
             merkle_trees.len(),
         ));
     }
-    let mut merkle_tree_map = HashMap::new();
+    let mut merkle_tree_map = BTreeMap::new();
 
     for (i, merkle_tree) in merkle_trees.iter().enumerate() {
         merkle_tree_map
@@ -99,10 +99,17 @@ pub fn append_leaves(
             leaves: Vec::with_capacity(cmp::min(leaves.len(), batch_size)),
         };
 
-        let leaves_end = if leaves.len() < batch_size - leaves_start {
+        println!(
+            "leaves.len(): {}, batch_size - leaves_start: {}",
+            leaves.len(),
+            batch_size - leaves_start
+        );
+        let leaves_end = if leaves.len() > batch_size - leaves_start {
+            println!("1st branch");
             leaves.len()
         } else {
-            batch_size - leaves_start
+            println!("2nd branch");
+            cmp::min(leaves.len(), batch_size - leaves_start)
         };
 
         println!("leaves_start: {leaves_start}, leaves_end: {leaves_end}");
@@ -116,7 +123,7 @@ pub fn append_leaves(
         leaves_in_batch += leaves_to_process;
         leaves_start += leaves_to_process;
 
-        if leaves_start == cmp::min(leaves.len(), batch_size) {
+        if leaves_start == leaves.len() {
             println!("shifting to the next Merkle tree");
             leaves_start = 0;
             merkle_tree_map_pair = merkle_tree_map_iter.next();
@@ -128,7 +135,7 @@ pub fn append_leaves(
             batches_of_changelogs.push(batch_of_changelogs);
 
             leaves_in_batch = 0;
-            leaves_start = 0;
+            // leaves_start = 0;
             batch_of_changelogs = Changelogs {
                 changelogs: Vec::with_capacity(batch_size),
             };
@@ -187,7 +194,7 @@ mod tests {
         let merkle_tree_map = build_merkle_tree_map(&leaves, &merkle_trees).unwrap();
         assert_eq!(
             merkle_tree_map,
-            HashMap::<[u8; 32], Vec<[u8; 32]>>::from([
+            BTreeMap::<[u8; 32], Vec<[u8; 32]>>::from([
                 (
                     [0_u8; 32],
                     vec![
