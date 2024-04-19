@@ -1,0 +1,8 @@
+[package]
+name = "batched-iteration-mt-leaves"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-integer = "0.1"
+thiserror = "1.0"
