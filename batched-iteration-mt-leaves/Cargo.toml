@@ -5,5 +5,4 @@ edition = "2021"
 
 [dependencies]
 num-integer = "0.1"
-pretty_assertions = "1.4"
 thiserror = "1.0"

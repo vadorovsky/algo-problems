@@ -11,13 +11,13 @@ pub enum MyError {
 
 /// Set of changelogs for different Merkle trees.
 /// The number of changelogs it contains is batched.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Changelogs {
     pub changelogs: Vec<ChangelogEvent>,
 }
 
 /// Changelog event for one Merkle tree.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChangelogEvent {
     pub merkle_tree_pubkey: [u8; 32],
     pub leaves: Vec<[u8; 32]>,
@@ -87,12 +87,12 @@ pub fn append_leaves(
         }
 
         if leaves_in_batch == batch_size {
-            batches_of_changelogs.push(batch_of_changelogs);
+            // BEWARE! We shouldn't do this clone in the actual program code.
+            // It's here just to make test convenient.
+            batches_of_changelogs.push(batch_of_changelogs.clone());
 
             leaves_in_batch = 0;
-            batch_of_changelogs = Changelogs {
-                changelogs: Vec::with_capacity(batch_size),
-            };
+            batch_of_changelogs.changelogs.clear();
         }
     }
 
