@@ -143,6 +143,10 @@ pub fn append_leaves(
         }
     }
 
+    if !batch_of_changelogs.changelogs.is_empty() {
+        batches_of_changelogs.push(batch_of_changelogs);
+    }
+
     Ok(batches_of_changelogs)
 }
 
